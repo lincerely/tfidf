@@ -1,21 +1,16 @@
+// return the tfidf cosine similarity matrix for all files in the directory
 // reference: 
-// https://www.sejuku.net/blog/26420
-// https://atmarkit.itmedia.co.jp/ait/articles/2112/23/news028.html
+//  - https://www.sejuku.net/blog/26420
+//  - https://atmarkit.itmedia.co.jp/ait/articles/2112/23/news028.html
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <math.h>
+#include <ctype.h>
 
 const uint16_t MAP_SIZE = 64;
 const uint16_t MAX_DOC = 1024;
-
-char *terms[] = {
-    "犬", "可愛い", "犬", "大きい", NULL,
-    "猫", "小さい", "猫", "可愛い", "可愛い", NULL,
-    "虫", "小さい", "可愛くない", NULL,
-	NULL,
-};
 
 uint16_t hash(char *str) {
 	uint16_t sum = 0;
@@ -66,6 +61,8 @@ void map_free(struct keyval *map[MAP_SIZE])
 
 int main(void)
 {
+	// stdin filename line by line
+
 	// term frequency: #term / #doc_term_count
 	// document frequency: #docs_with_term / #all_docs
 	// for all doc:
@@ -80,32 +77,87 @@ int main(void)
 	int docCount = 0;
 
 	int d = 0;
-	for (int i = 0; terms[i] != NULL; i++) {
+	char *fname = NULL;
+	size_t len = 0;
+	while(getline(&fname, &len, stdin) != -1) {
 
 		memset(termCounts[d], 0, sizeof(*termCounts[d]));
 
-		for (; terms[i] != NULL; i++) {
+		int lastc = strlen(fname);
+		fname[lastc-1] = '\0';
 
-			docTermCounts[d]++;
+		FILE *fp = fopen(fname, "r");
+		if (fp == NULL) {
+			perror("open");
+			return 1;
+		}
 
-			struct keyval* kv = map_get(termCounts[d], terms[i]);
+		char *line = NULL;
+		size_t linelen = 0;
+		while (getline(&line, &linelen, fp) != -1) {
+			char *str, *last, *token;
+			for (str = line; ; str = NULL) {
+				char *delim = " \t\v\f\r\n!#$%&()*+,./:;<=>?@[\\]^_`{|}~";
+				token = strtok_r(str, delim, &last);
+				if (token == NULL) {
+					break;
+				}
 
-			if (kv == NULL) { 
-				map_set(termCounts[d], terms[i], 1);
+				// trim front
+				for (char *c = token; *c != '\0'; c++) {
+					if (ispunct(*c) || isspace(*c)) {
+						token++;
+					} else {
+						break;
+					}
+				}
 
-				// first appearence of this term in this doc
-				kv = map_get(termDocCounts, terms[i]);
-				if (kv == NULL) {
-					map_set(termDocCounts, terms[i], 1);
+				// trim back
+				for (char *c = token+strlen(token)-1; c > token; c--) {
+					if (ispunct(*c) || isspace(*c)) {
+						*c = '\0';
+					} else {
+						break;
+					}
+				}
+
+				for (char *c = token; *c != '\0'; c++) {
+					*c = tolower(*c);
+				}
+				//printf("%s0\n", token);
+
+				char *term = malloc(sizeof(char)*(strlen(token)+1));
+				strcpy(term, token);
+
+				docTermCounts[d]++;
+
+				struct keyval* kv = map_get(termCounts[d], term);
+
+				if (kv == NULL) { 
+					map_set(termCounts[d], term, 1);
+
+					// first appearence of this term in this doc
+					kv = map_get(termDocCounts, term);
+					if (kv == NULL) {
+						map_set(termDocCounts, term, 1);
+					} else {
+						kv->value++;
+					}
 				} else {
 					kv->value++;
 				}
-			} else {
-				kv->value++;
+				
 			}
 		}
+		free(line);
+		if (ferror(fp)) {
+			perror("getline");
+			return 1;
+		}
+		fclose(fp);
 		d++;
 	}
+	free(fname);
 	docCount = d;
 
 	// calculate tfidf
@@ -126,10 +178,10 @@ int main(void)
 				float tfidf = tf * log((float)docCount / df_kv->value);
 				
 				map_set(tfidfs[d], kv->key, tfidf);
-				printf("%s(%.4f) ", kv->key, tfidf);
+				//printf("%s(%.4f) ", kv->key, tfidf);
 			}
 		}
-		printf("\n");
+		//printf("\n");
 	}
 
 	//  for each doc
