@@ -8,6 +8,7 @@
 #include <stdint.h>
 #include <math.h>
 #include <ctype.h>
+#include <errno.h>
 
 const uint16_t MAP_SIZE = 64;
 const uint16_t MAX_DOC = 1024;
@@ -20,9 +21,9 @@ uint16_t hash(char *str) {
 }
 
 struct keyval {
-	char* key; // external
+	char* key;
 	float value;
-	struct keyval* next; // free by map_free()
+	struct keyval* next;
 };
 
 struct keyval* map_get(struct keyval *map[MAP_SIZE], char *key)
@@ -53,6 +54,7 @@ void map_free(struct keyval *map[MAP_SIZE])
 	for (int i = 0; i < MAP_SIZE; i++) {
 		while (map[i] != NULL) {
 			struct keyval *next = map[i]->next;
+			free(map[i]->key);
 			free(map[i]);
 			map[i] = next;
 		}
@@ -88,15 +90,17 @@ int main(void)
 
 		FILE *fp = fopen(fname, "r");
 		if (fp == NULL) {
-			perror("open");
+			fprintf(stderr, "failed to open %s: %s\n", fname, strerror(errno));
 			return 1;
 		}
 
 		char *line = NULL;
 		size_t linelen = 0;
 		while (getline(&line, &linelen, fp) != -1) {
+
 			char *str, *last, *token;
 			for (str = line; ; str = NULL) {
+
 				char *delim = " \t\v\f\r\n!#$%&()*+,./:;<=>?@[\\]^_`{|}~";
 				token = strtok_r(str, delim, &last);
 				if (token == NULL) {
@@ -124,36 +128,34 @@ int main(void)
 				for (char *c = token; *c != '\0'; c++) {
 					*c = tolower(*c);
 				}
-				//printf("%s0\n", token);
 
 				char *term = malloc(sizeof(char)*(strlen(token)+1));
 				strcpy(term, token);
 
 				docTermCounts[d]++;
 
-				struct keyval* kv = map_get(termCounts[d], term);
+				struct keyval* t_kv = map_get(termCounts[d], term);
 
-				if (kv == NULL) { 
+				if (t_kv != NULL) { 
+					t_kv->value++;
+				} else {
 					map_set(termCounts[d], term, 1);
 
 					// first appearence of this term in this doc
-					kv = map_get(termDocCounts, term);
-					if (kv == NULL) {
-						map_set(termDocCounts, term, 1);
+					struct keyval *td_kv = map_get(termDocCounts, term);
+					if (td_kv != NULL) {
+						td_kv->value++;
 					} else {
-						kv->value++;
+						map_set(termDocCounts, term, 1);
 					}
-				} else {
-					kv->value++;
 				}
-				
 			}
 		}
-		free(line);
 		if (ferror(fp)) {
-			perror("getline");
+			fprintf(stderr, "failed to getline from %s: %s\n", fname, strerror(errno));
 			return 1;
 		}
+		free(line);
 		fclose(fp);
 		d++;
 	}
@@ -184,13 +186,13 @@ int main(void)
 		//printf("\n");
 	}
 
-	//  for each doc
-	//  	calc magnitude
 	// for each doc
-	//  for each other doc
-	//  	calc dot product
-	//  	dot product / magnitude
-	//
+	//   calc magnitude
+	// for each doc
+	//   for each other doc
+	//     calc dot product
+	//     dot product / magnitude
+
 	float mag[MAX_DOC] = {0};
 	for (int d = 0; d < docCount; d++) {
 		float sum = 0;
