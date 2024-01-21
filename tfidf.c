@@ -1,5 +1,5 @@
 // return the tfidf cosine similarity matrix for all files in the directory
-// reference: 
+// reference:
 //  - https://www.sejuku.net/blog/26420
 //  - https://atmarkit.itmedia.co.jp/ait/articles/2112/23/news028.html
 #include <stdlib.h>
@@ -37,15 +37,19 @@ struct keyval* map_get(struct keyval *map[MAP_SIZE], char *key)
 
 void map_set(struct keyval *map[MAP_SIZE], char *key, float value)
 {
-	struct keyval* kv = map_get(map, key);
-	if (kv == NULL) {
-		uint16_t h = hash(key);
-		kv = malloc(sizeof(struct keyval));
-		kv->next = map[h];
-		kv->key = key;
-		map[h] = kv;
+	uint16_t h = hash(key);
+	for (struct keyval *kv = map[h]; kv != NULL; kv = kv->next) {
+		if (strcmp(key, kv->key) == 0) {
+			kv->value = value;
+			return;
+		}
 	}
+
+	struct keyval *kv = malloc(sizeof(struct keyval));
+	kv->next = map[h];
+	kv->key = key;
 	kv->value = value;
+	map[h] = kv;
 	return;
 }
 
@@ -61,9 +65,17 @@ void map_free(struct keyval *map[MAP_SIZE])
 	}
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
-	// stdin filename line by line
+
+	FILE *listfp = stdin;
+	if (argc > 1) {
+		listfp = fopen(argv[1], "r");
+		if (listfp == NULL) {
+			fprintf(stderr, "failed to open file list %s: %s\n", argv[1], strerror(errno));
+			return 1;
+		}
+	}
 
 	// term frequency: #term / #doc_term_count
 	// document frequency: #docs_with_term / #all_docs
@@ -71,7 +83,7 @@ int main(void)
 	// 	if termCount[doc][term] == 0:
 	// 	  termDocCount[term]++;
 	//  termCount[doc][term]++;
-	// 
+	//
 
 	struct keyval *termCounts[MAX_DOC][MAP_SIZE];
 	struct keyval* termDocCounts[MAP_SIZE] = {0};
@@ -81,7 +93,7 @@ int main(void)
 	int d = 0;
 	char *fname = NULL;
 	size_t len = 0;
-	while(getline(&fname, &len, stdin) != -1) {
+	while(getline(&fname, &len, listfp) != -1) {
 
 		memset(termCounts[d], 0, sizeof(*termCounts[d]));
 
@@ -136,7 +148,7 @@ int main(void)
 
 				struct keyval* t_kv = map_get(termCounts[d], term);
 
-				if (t_kv != NULL) { 
+				if (t_kv != NULL) {
 					t_kv->value++;
 				} else {
 					map_set(termCounts[d], term, 1);
@@ -164,21 +176,21 @@ int main(void)
 
 	// calculate tfidf
 	// tfidf = tf * log(docCount / df)
-	
+
 	struct keyval *tfidfs[MAX_DOC][MAP_SIZE];
 
 	for (int d = 0; d < docCount; d++) {
-		
+
 		memset(tfidfs[d], 0, sizeof(*tfidfs[d]));
 
 		for (int i = 0; i < MAP_SIZE; i++) {
 			for (struct keyval *kv=termCounts[d][i]; kv!=NULL; kv=kv->next) {
-				
+
 				float tf = (float)kv->value / docTermCounts[d];
 
 				struct keyval *df_kv = map_get(termDocCounts, kv->key);
 				float tfidf = tf * log((float)docCount / df_kv->value);
-				
+
 				map_set(tfidfs[d], kv->key, tfidf);
 				//printf("%s(%.4f) ", kv->key, tfidf);
 			}
