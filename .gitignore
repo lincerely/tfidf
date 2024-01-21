@@ -1,0 +1,4 @@
+tfidf
+*.dSYM/
+*.csv
+filelist.txt
