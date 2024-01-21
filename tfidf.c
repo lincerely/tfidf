@@ -88,6 +88,7 @@ int main(int argc, char **argv)
 	struct keyval *termCounts[MAX_DOC][MAP_SIZE];
 	struct keyval* termDocCounts[MAP_SIZE] = {0};
 	int docTermCounts[MAX_DOC] = {0};
+	char *docfnames[MAX_DOC] = {0};
 	int docCount = 0;
 
 	int d = 0;
@@ -105,6 +106,9 @@ int main(int argc, char **argv)
 			fprintf(stderr, "failed to open %s: %s\n", fname, strerror(errno));
 			return 1;
 		}
+
+		docfnames[d] = malloc(sizeof(char) * (len+1));
+		strcpy(docfnames[d], fname);
 
 		char *line = NULL;
 		size_t linelen = 0;
@@ -230,7 +234,7 @@ int main(int argc, char **argv)
 				}
 			}
 			float similarity = dot/(mag[d1]*mag[d2]);
-			printf("%d, %d, %.4f\n", d1, d2, similarity);
+			printf("%s, %s, %.4f\n", docfnames[d1], docfnames[d2], similarity);
 		}
 	}
 
