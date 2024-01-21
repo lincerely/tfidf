@@ -113,7 +113,7 @@ int main(int argc, char **argv)
 			char *str, *last, *token;
 			for (str = line; ; str = NULL) {
 
-				char *delim = " \t\v\f\r\n!#$%&()*+,./:;<=>?@[\\]^_`{|}~";
+				const char *delim = " \t\v\f\r\n!\"#$%&()*+,-./:;<=>?@[\\]^_`{|}~";
 				token = strtok_r(str, delim, &last);
 				if (token == NULL) {
 					break;
@@ -139,6 +139,10 @@ int main(int argc, char **argv)
 
 				for (char *c = token; *c != '\0'; c++) {
 					*c = tolower(*c);
+				}
+
+				if (*token == '\0') {
+					continue;
 				}
 
 				char *term = malloc(sizeof(char)*(strlen(token)+1));
