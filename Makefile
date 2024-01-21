@@ -1,3 +1,3 @@
-tfidf: tfidf.c
-	gcc -Wall -fsanitize=address -g tfidf.c -o tfidf
+tfidf: tfidf.c map.c map.h
+	gcc -Wall -fsanitize=address -g map.c tfidf.c -o tfidf
 
