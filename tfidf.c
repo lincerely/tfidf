@@ -216,10 +216,9 @@ int main(int argc, char **argv)
 	// calculate tfidf
 	// tfidf = tf * log(docCount / df)
 
-	float *tfidfs[MAX_DOC];
-
+	float *tfidfs[docCount];
+	#pragma omp parallel for
 	for (int d = 0; d < docCount; d++) {
-
 		tfidfs[d] = malloc(sizeof(*tfidfs[d]) * termCount);
 
 		for (int t = 0; t < termCount; t++) {
@@ -239,7 +238,8 @@ int main(int argc, char **argv)
 	//     calc dot product
 	//     dot product / magnitude
 
-	float mag[MAX_DOC] = {0};
+	float mag[docCount];
+	#pragma omp parallel for
 	for (int d = 0; d < docCount; d++) {
 		float sum = 0;
 		float *x = tfidfs[d];
@@ -252,19 +252,47 @@ int main(int argc, char **argv)
 	fprintf(stderr, "magni\t%ld\n", microsec()-starttime);
 	starttime = microsec();
 
+	float dots[docCount*docCount];
+	#pragma omp parallel for
 	for (int d1 = 0; d1 < docCount - 1; d1++) {
 		for (int d2 = d1+1; d2 < docCount; d2++) {
-			float dot = 0;
+			float s[8] = {0};
 			float *x = tfidfs[d1];
 			float *y = tfidfs[d2];
-			for (int t = 0; t < termCount; t++) {
-				dot += x[t] * y[t];
+			for (int t = 0; t < termCount; t+=8) {
+				s[0] += x[t+0] * y[t+0];
+				s[1] += x[t+1] * y[t+1];
+				s[2] += x[t+2] * y[t+2];
+				s[3] += x[t+3] * y[t+3];
+				s[4] += x[t+4] * y[t+4];
+				s[5] += x[t+5] * y[t+5];
+				s[6] += x[t+6] * y[t+6];
+				s[7] += x[t+7] * y[t+7];
 			}
-			float similarity = dot/(mag[d1]*mag[d2]);
-			printf("%s, %s, %.4f\n", docfnames[d1], docfnames[d2], similarity);
+			dots[d1*docCount+d2] = s[0]+s[1]+s[2]+s[3]+s[4]+s[5]+s[6]+s[7];
+		}
+	}
+
+	fprintf(stderr, "dotprod\t%ld\n", microsec()-starttime);
+	starttime = microsec();
+
+	float similarities[docCount*docCount];
+	#pragma omp parallel for
+	for (int d1 = 0; d1 < docCount - 1; d1++) {
+		for (int d2 = d1+1; d2 < docCount; d2++) {
+			similarities[d1*docCount+d2] = dots[d1*docCount+d2]/(mag[d1]*mag[d2]);
 		}
 	}
 
 	fprintf(stderr, "cosine\t%ld\n", microsec()-starttime);
+	starttime = microsec();
+
+	for (int d1 = 0; d1 < docCount - 1; d1++) {
+		for (int d2 = d1+1; d2 < docCount; d2++) {
+			printf("%s, %s, %.4f\n", docfnames[d1], docfnames[d2], similarities[d1*docCount+d2]);
+		}
+	}
+
+	fprintf(stderr, "printf\t%ld\n", microsec()-starttime);
 	return 0;
 }
