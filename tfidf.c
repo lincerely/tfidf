@@ -15,9 +15,9 @@ extern int stem (char *p, int i, int j);
 #define MAP_SIZE 64
 #define MAX_DOC 1024
 
-uint16_t hash(char *str) {
+uint16_t hash(const char *str) {
 	uint16_t sum = 0;
-	for (char *c = str; *c != '\0'; c++)
+	for (const char *c = str; *c != '\0'; c++)
 		sum += *c;
 	return sum % MAP_SIZE;
 }
@@ -28,7 +28,7 @@ struct keyval {
 	struct keyval* next;
 };
 
-struct keyval* map_get(struct keyval *map[MAP_SIZE], char *key)
+struct keyval* map_get(struct keyval *map[MAP_SIZE], const char *key)
 {
 	uint16_t h = hash(key);
 	for (struct keyval *kv = map[h]; kv != NULL; kv = kv->next)
@@ -37,7 +37,7 @@ struct keyval* map_get(struct keyval *map[MAP_SIZE], char *key)
 	return NULL;
 }
 
-void map_set(struct keyval *map[MAP_SIZE], char *key, float value)
+void map_set(struct keyval *map[MAP_SIZE], const char *key, float value)
 {
 	uint16_t h = hash(key);
 	for (struct keyval *kv = map[h]; kv != NULL; kv = kv->next) {
@@ -100,8 +100,7 @@ int main(int argc, char **argv)
 
 		memset(termCounts[d], 0, sizeof(*termCounts[d]));
 
-		int lastc = strlen(fname);
-		fname[lastc-1] = '\0';
+		fname[strlen(fname)-1] = '\0';
 
 		FILE *fp = fopen(fname, "r");
 		if (fp == NULL) {
