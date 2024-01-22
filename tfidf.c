@@ -9,8 +9,15 @@
 #include <math.h>
 #include <ctype.h>
 #include <errno.h>
+#include <sys/time.h>
 
 extern int stem (char *p, int i, int j);
+
+long microsec() {
+	struct timeval t;
+	gettimeofday(&t, NULL);
+	return 1000000*t.tv_sec + t.tv_usec;
+}
 
 #define MAP_SIZE 64
 #define MAX_DOC 1024
@@ -92,6 +99,8 @@ int main(int argc, char **argv)
 	int docTermCounts[MAX_DOC] = {0};
 	char *docfnames[MAX_DOC] = {0};
 	int docCount = 0;
+
+	long starttime = microsec();
 
 	int d = 0;
 	char *fname = NULL;
@@ -185,6 +194,8 @@ int main(int argc, char **argv)
 	free(fname);
 	docCount = d;
 
+	fprintf(stderr, "token:\t%ld\n", microsec() -starttime);
+	starttime = microsec();
 
 	// calculate tfidf
 	// tfidf = tf * log(docCount / df)
@@ -210,6 +221,9 @@ int main(int argc, char **argv)
 		//printf("\n");
 	}
 
+	fprintf(stderr, "tfidf\t%ld\n", microsec()-starttime);
+	starttime = microsec();
+
 	// for each doc
 	//   calc magnitude
 	// for each doc
@@ -227,6 +241,9 @@ int main(int argc, char **argv)
 		mag[d] = sqrt(sum);
 	}
 
+	fprintf(stderr, "magni\t%ld\n", microsec()-starttime);
+	starttime = microsec();
+
 	for (int d1 = 0; d1 < docCount - 1; d1++) {
 		for (int d2 = d1+1; d2 < docCount; d2++) {
 			float dot = 0;
@@ -242,9 +259,6 @@ int main(int argc, char **argv)
 		}
 	}
 
-	map_free(termDocCounts);
-	for (int d = 0; d < docCount; d++)
-		map_free(termCounts[d]);
-
+	fprintf(stderr, "cosine\t%ld\n", microsec()-starttime);
 	return 0;
 }
