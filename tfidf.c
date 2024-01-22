@@ -21,6 +21,7 @@ long microsec() {
 
 #define MAP_SIZE 64
 #define MAX_DOC 1024
+#define MAX_TERM (1024*8)
 
 uint16_t hash(const char *str) {
 	uint16_t sum = 0;
@@ -56,10 +57,22 @@ void map_set(struct keyval *map[MAP_SIZE], const char *key, float value)
 
 	struct keyval *kv = malloc(sizeof(struct keyval));
 	kv->next = map[h];
-	kv->key = key;
+	kv->key = malloc(sizeof(*key) * (strlen(key)+1));
+	strcpy(kv->key, key);
 	kv->value = value;
 	map[h] = kv;
 	return;
+}
+
+void map_debug(struct keyval *map[MAP_SIZE])
+{
+	for (int m = 0; m < MAP_SIZE; m++) {
+		int count = 0;
+		for (struct keyval *kv = map[m]; kv != NULL; kv = kv->next) {
+			count++;
+		}
+		fprintf(stderr, "map[%02d]:\t%d\n", m, count);
+	}
 }
 
 void map_free(struct keyval *map[MAP_SIZE])
@@ -67,7 +80,7 @@ void map_free(struct keyval *map[MAP_SIZE])
 	for (int i = 0; i < MAP_SIZE; i++) {
 		while (map[i] != NULL) {
 			struct keyval *next = map[i]->next;
-			// free(map[i]->key);
+			free(map[i]->key);
 			free(map[i]);
 			map[i] = next;
 		}
@@ -94,11 +107,13 @@ int main(int argc, char **argv)
 	//  termCount[doc][term]++;
 	//
 
-	struct keyval *termCounts[MAX_DOC][MAP_SIZE];
-	struct keyval* termDocCounts[MAP_SIZE] = {0};
+	struct keyval *termMap[MAP_SIZE] = {0};
+	int *termCounts[MAX_DOC];
+	int termDocCounts[MAX_TERM] = {0};
 	int docTermCounts[MAX_DOC] = {0};
 	char *docfnames[MAX_DOC] = {0};
 	int docCount = 0;
+	int termCount = 0;
 
 	long starttime = microsec();
 
@@ -107,7 +122,7 @@ int main(int argc, char **argv)
 	size_t len = 0;
 	while(getline(&fname, &len, listfp) != -1) {
 
-		memset(termCounts[d], 0, sizeof(*termCounts[d]));
+		termCounts[d] = calloc(MAX_TERM, sizeof(*termCounts[d]));
 
 		fname[strlen(fname)-1] = '\0';
 
@@ -161,26 +176,27 @@ int main(int argc, char **argv)
 
 				token[endc+1] = '\0';
 
-				char *term = malloc(sizeof(char)*(strlen(token)+1));
-				strcpy(term, token);
+				struct keyval *t_kv = map_get(termMap, token);
+				int key;
+				if (t_kv == NULL) {
+					key = termCount;
+					map_set(termMap, token, key);
+					termCount++;
+
+					if (termCount >= MAX_TERM) {
+						fprintf(stderr, "maximum term limit reached: %d\n", MAX_TERM);
+						return 1;
+					}
+				} else {
+					key = t_kv->value;
+				}
 
 				docTermCounts[d]++;
 
-				struct keyval* t_kv = map_get(termCounts[d], term);
-
-				if (t_kv != NULL) {
-					t_kv->value++;
-				} else {
-					map_set(termCounts[d], term, 1);
-
-					// first appearence of this term in this doc
-					struct keyval *td_kv = map_get(termDocCounts, term);
-					if (td_kv != NULL) {
-						td_kv->value++;
-					} else {
-						map_set(termDocCounts, term, 1);
-					}
+				if (termCounts[d][key] == 0) {
+					termDocCounts[key]++;
 				}
+				termCounts[d][key]++;
 			}
 		}
 		if (ferror(fp)) {
@@ -200,25 +216,17 @@ int main(int argc, char **argv)
 	// calculate tfidf
 	// tfidf = tf * log(docCount / df)
 
-	struct keyval *tfidfs[MAX_DOC][MAP_SIZE];
+	float *tfidfs[MAX_DOC];
 
 	for (int d = 0; d < docCount; d++) {
 
-		memset(tfidfs[d], 0, sizeof(*tfidfs[d]));
+		tfidfs[d] = malloc(sizeof(*tfidfs[d]) * termCount);
 
-		for (int i = 0; i < MAP_SIZE; i++) {
-			for (struct keyval *kv=termCounts[d][i]; kv!=NULL; kv=kv->next) {
-
-				float tf = (float)kv->value / docTermCounts[d];
-
-				struct keyval *df_kv = map_get(termDocCounts, kv->key);
-				float tfidf = tf * log((float)docCount / df_kv->value);
-
-				map_set(tfidfs[d], kv->key, tfidf);
-				//printf("%s(%.4f) ", kv->key, tfidf);
-			}
+		for (int t = 0; t < termCount; t++) {
+			float tf = (float)termCounts[d][t];
+			float df = (float)termDocCounts[t];
+			tfidfs[d][t] = tf * log((float)docCount / df);
 		}
-		//printf("\n");
 	}
 
 	fprintf(stderr, "tfidf\t%ld\n", microsec()-starttime);
@@ -234,10 +242,10 @@ int main(int argc, char **argv)
 	float mag[MAX_DOC] = {0};
 	for (int d = 0; d < docCount; d++) {
 		float sum = 0;
-		for (int i = 0; i < MAP_SIZE; i++)
-			for (struct keyval *kv=tfidfs[d][i]; kv!=NULL; kv=kv->next)
-				sum += (float)kv->value*kv->value;
-
+		float *x = tfidfs[d];
+		for (int t = 0; t < termCount;  t++) {
+			sum += x[t]*x[t];
+		}
 		mag[d] = sqrt(sum);
 	}
 
@@ -247,12 +255,10 @@ int main(int argc, char **argv)
 	for (int d1 = 0; d1 < docCount - 1; d1++) {
 		for (int d2 = d1+1; d2 < docCount; d2++) {
 			float dot = 0;
-			for (int i = 0; i < MAP_SIZE; i++) {
-				for (struct keyval *kv=tfidfs[d1][i]; kv!=NULL; kv=kv->next) {
-					struct keyval *kv2 = map_get(tfidfs[d2], kv->key);
-					if (kv2 != NULL)
-						dot += kv->value * kv2->value;
-				}
+			float *x = tfidfs[d1];
+			float *y = tfidfs[d2];
+			for (int t = 0; t < termCount; t++) {
+				dot += x[t] * y[t];
 			}
 			float similarity = dot/(mag[d1]*mag[d2]);
 			printf("%s, %s, %.4f\n", docfnames[d1], docfnames[d2], similarity);
