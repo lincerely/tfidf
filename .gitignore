@@ -1,4 +1,4 @@
 tfidf
 *.dSYM/
 *.csv
-filelist.txt
+*.txt

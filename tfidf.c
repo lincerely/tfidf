@@ -10,8 +10,10 @@
 #include <ctype.h>
 #include <errno.h>
 
-const uint16_t MAP_SIZE = 64;
-const uint16_t MAX_DOC = 1024;
+extern int stem (char *p, int i, int j);
+
+#define MAP_SIZE 64
+#define MAX_DOC 1024
 
 uint16_t hash(char *str) {
 	uint16_t sum = 0;
@@ -58,7 +60,7 @@ void map_free(struct keyval *map[MAP_SIZE])
 	for (int i = 0; i < MAP_SIZE; i++) {
 		while (map[i] != NULL) {
 			struct keyval *next = map[i]->next;
-			free(map[i]->key);
+			// free(map[i]->key);
 			free(map[i]);
 			map[i] = next;
 		}
@@ -117,26 +119,20 @@ int main(int argc, char **argv)
 			char *str, *last, *token;
 			for (str = line; ; str = NULL) {
 
-				const char *delim = " \t\v\f\r\n!\"#$%&()*+,-./:;<=>?@[\\]^_`{|}~";
+				const char *delim = " \'\t\v\f\r\n!\"#$%&()*+,-./:;<=>?@[\\]^_`{|}~“”";
 				token = strtok_r(str, delim, &last);
 				if (token == NULL) {
 					break;
 				}
 
-				// trim front
 				for (char *c = token; *c != '\0'; c++) {
-					if (ispunct(*c) || isspace(*c)) {
-						token++;
-					} else {
+					if (!(ispunct(*c) || isspace(*c))) {
 						break;
 					}
 				}
 
-				// trim back
 				for (char *c = token+strlen(token)-1; c > token; c--) {
-					if (ispunct(*c) || isspace(*c)) {
-						*c = '\0';
-					} else {
+					if (!(ispunct(*c) || isspace(*c))) {
 						break;
 					}
 				}
@@ -148,6 +144,14 @@ int main(int argc, char **argv)
 				if (*token == '\0') {
 					continue;
 				}
+
+				int endc = stem(token, 0, strlen(token)-1);
+
+				if (endc == 0) {
+					continue;
+				}
+
+				token[endc+1] = '\0';
 
 				char *term = malloc(sizeof(char)*(strlen(token)+1));
 				strcpy(term, token);
@@ -181,6 +185,7 @@ int main(int argc, char **argv)
 	}
 	free(fname);
 	docCount = d;
+
 
 	// calculate tfidf
 	// tfidf = tf * log(docCount / df)
