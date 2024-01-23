@@ -19,14 +19,14 @@ long microsec() {
 	return 1000000*t.tv_sec + t.tv_usec;
 }
 
-#define MAP_SIZE 64
+#define MAP_SIZE 5987
 #define MAX_DOC 1024
 #define MAX_TERM (1024*8)
 
 uint16_t hash(const char *str) {
-	uint16_t sum = 0;
+	unsigned int sum = 0;
 	for (const char *c = str; *c != '\0'; c++)
-		sum += *c;
+		sum = *c + 5 * sum;
 	return sum % MAP_SIZE;
 }
 
@@ -71,7 +71,7 @@ void map_debug(struct keyval *map[MAP_SIZE])
 		for (struct keyval *kv = map[m]; kv != NULL; kv = kv->next) {
 			count++;
 		}
-		fprintf(stderr, "map[%02d]:\t%d\n", m, count);
+		fprintf(stderr, "map[%04d]:\t%d\n", m, count);
 	}
 }
 
@@ -107,7 +107,7 @@ int main(int argc, char **argv)
 	//  termCount[doc][term]++;
 	//
 
-	struct keyval *termMap[MAP_SIZE] = {0};
+	struct keyval **termMap = calloc(MAP_SIZE, sizeof(*termMap));
 	int *termCounts[MAX_DOC];
 	int termDocCounts[MAX_TERM] = {0};
 	int docTermCounts[MAX_DOC] = {0};
