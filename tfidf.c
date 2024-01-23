@@ -45,16 +45,9 @@ struct keyval* map_get(struct keyval *map[MAP_SIZE], const char *key)
 	return NULL;
 }
 
-void map_set(struct keyval *map[MAP_SIZE], const char *key, float value)
+void map_insert(struct keyval *map[MAP_SIZE], const char *key, float value)
 {
 	uint16_t h = hash(key);
-	for (struct keyval *kv = map[h]; kv != NULL; kv = kv->next) {
-		if (strcmp(key, kv->key) == 0) {
-			kv->value = value;
-			return;
-		}
-	}
-
 	struct keyval *kv = malloc(sizeof(struct keyval));
 	kv->next = map[h];
 	kv->key = malloc(sizeof(*key) * (strlen(key)+1));
@@ -176,11 +169,11 @@ int main(int argc, char **argv)
 
 				token[endc+1] = '\0';
 
-				struct keyval *t_kv = map_get(termMap, token);
 				int key;
+				struct keyval *t_kv = map_get(termMap, token);
 				if (t_kv == NULL) {
 					key = termCount;
-					map_set(termMap, token, key);
+					map_insert(termMap, token, key);
 					termCount++;
 
 					if (termCount >= MAX_TERM) {
