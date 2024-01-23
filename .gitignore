@@ -2,3 +2,4 @@ tfidf
 *.dSYM/
 *.csv
 *.txt
+acme.dump
