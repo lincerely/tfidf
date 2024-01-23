@@ -1,4 +1,6 @@
-
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmisleading-indentation"
+#pragma GCC diagnostic ignored "-Wparentheses"
 /* This is the Porter stemming algorithm, coded up in ANSI C by the
    author. It may be be regarded as canonical, in that it follows the
    algorithm presented in
@@ -332,3 +334,4 @@ int stem(char * p, int i, int j)
    }
    return k;
 }
+#pragma GCC diagnostic pop
