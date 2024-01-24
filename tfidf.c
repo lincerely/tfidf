@@ -50,8 +50,7 @@ void map_insert(struct keyval *map[MAP_SIZE], const char *key, float value)
 	uint16_t h = hash(key);
 	struct keyval *kv = malloc(sizeof(struct keyval));
 	kv->next = map[h];
-	kv->key = malloc(sizeof(*key) * (strlen(key)+1));
-	strcpy(kv->key, key);
+	kv->key = strdup(key);
 	kv->value = value;
 	map[h] = kv;
 	return;
@@ -125,8 +124,7 @@ int main(int argc, char **argv)
 			return 1;
 		}
 
-		docfnames[d] = malloc(sizeof(char) * (len+1));
-		strcpy(docfnames[d], fname);
+		docfnames[d] = strdup(fname);
 
 		char *line = NULL;
 		size_t linelen = 0;
