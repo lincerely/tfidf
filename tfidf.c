@@ -32,7 +32,7 @@ uint16_t hash(const char *str) {
 
 struct keyval {
 	char* key;
-	float value;
+	int value;
 	struct keyval* next;
 };
 
@@ -45,7 +45,7 @@ struct keyval* map_get(struct keyval *map[MAP_SIZE], const char *key)
 	return NULL;
 }
 
-void map_insert(struct keyval *map[MAP_SIZE], const char *key, float value)
+void map_insert(struct keyval *map[MAP_SIZE], const char *key, int value)
 {
 	uint16_t h = hash(key);
 	struct keyval *kv = malloc(sizeof(struct keyval));
@@ -61,9 +61,10 @@ void map_debug(struct keyval *map[MAP_SIZE])
 	for (int m = 0; m < MAP_SIZE; m++) {
 		int count = 0;
 		for (struct keyval *kv = map[m]; kv != NULL; kv = kv->next) {
+			fprintf(stderr, "%s %d\n", kv->key, kv->value);
 			count++;
 		}
-		fprintf(stderr, "map[%04d]:\t%d\n", m, count);
+		//fprintf(stderr, "map[%04d]:\t%d\n", m, count);
 	}
 }
 
@@ -103,6 +104,7 @@ int main(int argc, char **argv)
 	int *termCounts[MAX_DOC];
 	int termDocCounts[MAX_TERM] = {0};
 	int docTermCounts[MAX_DOC] = {0};
+	int docUniqueTermCounts[MAX_DOC] = {0};
 	char *docfnames[MAX_DOC] = {0};
 	int docCount = 0;
 	int termCount = 0;
@@ -185,6 +187,7 @@ int main(int argc, char **argv)
 				docTermCounts[d]++;
 
 				if (termCounts[d][key] == 0) {
+					docUniqueTermCounts[d]++;
 					termDocCounts[key]++;
 				}
 				termCounts[d][key]++;
@@ -207,15 +210,22 @@ int main(int argc, char **argv)
 	// calculate tfidf
 	// tfidf = tf * log(docCount / df)
 
-	float *tfidfs[docCount];
+	struct tfidf {
+		int term;
+		float value;
+	};
+	struct tfidf *tfidfs[docCount];
 	#pragma omp parallel for
 	for (int d = 0; d < docCount; d++) {
-		tfidfs[d] = malloc(sizeof(*tfidfs[d]) * termCount);
-
-		for (int t = 0; t < termCount; t++) {
-			float tf = (float)termCounts[d][t]/docTermCounts[d];
-			float df = (float)termDocCounts[t];
-			tfidfs[d][t] = tf * log((float)docCount / df);
+		tfidfs[d] = malloc(sizeof(*tfidfs[d]) * docUniqueTermCounts[d]);
+		for (int t = 0, i = 0; t < termCount; t++) {
+			if (termCounts[d][t] > 0) {
+				float tf = (float)termCounts[d][t]/(float)docTermCounts[d];
+				float idf = (float)docCount / (float)termDocCounts[t];
+				tfidfs[d][i].term = t;
+				tfidfs[d][i].value = tf * log(idf);
+				i++;
+			}
 		}
 	}
 
@@ -233,9 +243,8 @@ int main(int argc, char **argv)
 	#pragma omp parallel for
 	for (int d = 0; d < docCount; d++) {
 		float sum = 0;
-		float *x = tfidfs[d];
-		for (int t = 0; t < termCount;  t++) {
-			sum += x[t]*x[t];
+		for (int i = 0; i < docUniqueTermCounts[d]; i++) {
+			sum += tfidfs[d][i].value*tfidfs[d][i].value;
 		}
 		mag[d] = sqrt(sum);
 	}
@@ -247,20 +256,25 @@ int main(int argc, char **argv)
 	#pragma omp parallel for
 	for (int d1 = 0; d1 < docCount - 1; d1++) {
 		for (int d2 = d1+1; d2 < docCount; d2++) {
-			float s[8] = {0};
-			float *x = tfidfs[d1];
-			float *y = tfidfs[d2];
-			for (int t = 0; t < termCount; t+=8) {
-				s[0] += x[t+0] * y[t+0];
-				s[1] += x[t+1] * y[t+1];
-				s[2] += x[t+2] * y[t+2];
-				s[3] += x[t+3] * y[t+3];
-				s[4] += x[t+4] * y[t+4];
-				s[5] += x[t+5] * y[t+5];
-				s[6] += x[t+6] * y[t+6];
-				s[7] += x[t+7] * y[t+7];
+			float s = 0;
+			int t1 = 0;
+			int t2 = 0;
+			int match = 0;
+			while(t1 < docUniqueTermCounts[d1] && t2 < docUniqueTermCounts[d2]) {
+				int term1 = tfidfs[d1][t1].term;
+				int term2 = tfidfs[d2][t2].term;
+
+				if (term1 < term2) {
+					t1++;
+				} else if (term1 > term2) {
+					t2++;
+				} else { // term1 == term2
+					s += tfidfs[d1][t1].value * tfidfs[d2][t2].value;
+					t1++; t2++;
+					match++;
+				}
 			}
-			dots[d1*docCount+d2] = s[0]+s[1]+s[2]+s[3]+s[4]+s[5]+s[6]+s[7];
+			dots[d1*docCount+d2] = s;
 		}
 	}
 
@@ -271,7 +285,8 @@ int main(int argc, char **argv)
 	#pragma omp parallel for
 	for (int d1 = 0; d1 < docCount - 1; d1++) {
 		for (int d2 = d1+1; d2 < docCount; d2++) {
-			similarities[d1*docCount+d2] = dots[d1*docCount+d2]/(mag[d1]*mag[d2]);
+			similarities[d1*docCount+d2] = 
+				dots[d1*docCount+d2]/(mag[d1]*mag[d2]);
 		}
 	}
 
