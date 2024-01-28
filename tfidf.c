@@ -213,7 +213,7 @@ int main(int argc, char **argv)
 		tfidfs[d] = malloc(sizeof(*tfidfs[d]) * termCount);
 
 		for (int t = 0; t < termCount; t++) {
-			float tf = (float)termCounts[d][t];
+			float tf = (float)termCounts[d][t]/docTermCounts[d];
 			float df = (float)termDocCounts[t];
 			tfidfs[d][t] = tf * log((float)docCount / df);
 		}
