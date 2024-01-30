@@ -285,7 +285,7 @@ int main(int argc, char **argv)
 	#pragma omp parallel for
 	for (int d1 = 0; d1 < docCount - 1; d1++) {
 		for (int d2 = d1+1; d2 < docCount; d2++) {
-			similarities[d1*docCount+d2] = 
+			similarities[d1*docCount+d2] =
 				dots[d1*docCount+d2]/(mag[d1]*mag[d2]);
 		}
 	}

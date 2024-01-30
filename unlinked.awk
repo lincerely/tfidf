@@ -1,11 +1,11 @@
-# csv input, check $1 contains $2 's filename
-# if not, it is unlinked, print the line.
+# csv input, print line if $1 not contains $2 's filename
+# variable: dir
 BEGIN {
 	FS=", "
 }
 {
 	fname = $2
-	sub("/Users/lincoln/Documents/box/", "", fname)
+	sub(dir, "", fname)
 	if (system("9 grep -s \"" fname "\" \"" $1 "\"") == 1) {
 		print $0
 	}
