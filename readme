@@ -1,6 +1,11 @@
 # TFIDF
 
-Calculate cosine similarity of files using TF-IDF.
+Given a list of filenames, calculate TF-IDF cosine similarity matrix for all entries.
+
+## Reference
+
+ - https://www.sejuku.net/blog/26420
+ - https://atmarkit.itmedia.co.jp/ait/articles/2112/23/news028.html
 
 ## License
 

@@ -1,7 +1,3 @@
-// return the tfidf cosine similarity matrix for all files in the directory
-// reference:
-//  - https://www.sejuku.net/blog/26420
-//  - https://atmarkit.itmedia.co.jp/ait/articles/2112/23/news028.html
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -23,7 +19,8 @@ long microsec() {
 #define MAX_DOC 1024
 #define MAX_TERM (1024*8)
 
-uint16_t hash(const char *str) {
+uint16_t hash(const char *str)
+{
 	unsigned int sum = 0;
 	for (const char *c = str; *c != '\0'; c++)
 		sum = *c + 5 * sum;
@@ -49,8 +46,16 @@ void map_insert(struct keyval *map[MAP_SIZE], const char *key, int value)
 {
 	uint16_t h = hash(key);
 	struct keyval *kv = malloc(sizeof(struct keyval));
+	if (kv == NULL) {
+		perror("failed to malloc keyval");
+		exit(1);
+	}
 	kv->next = map[h];
 	kv->key = strdup(key);
+	if (kv->key == NULL) {
+		perror("failed to strdup key");
+		exit(1);
+	}
 	kv->value = value;
 	map[h] = kv;
 	return;
@@ -127,6 +132,10 @@ int main(int argc, char **argv)
 		}
 
 		docfnames[d] = strdup(fname);
+		if (docfnames[d] == NULL) {
+			perror("failed to strdup fname");
+			exit(1);
+		}
 
 		char *line = NULL;
 		size_t linelen = 0;
@@ -218,7 +227,13 @@ int main(int argc, char **argv)
 	struct tfidf *tfidfs[docCount];
 	#pragma omp parallel for
 	for (int d = 0; d < docCount; d++) {
+
 		tfidfs[d] = malloc(sizeof(*tfidfs[d]) * docUniqueTermCounts[d]);
+		if (tfidfs[d] == NULL) {
+			perror("failed to malloc tfidfs");
+			exit(1);
+		}
+
 		for (int t = 0, i = 0; t < termCount; t++) {
 			if (termCounts[d][t] > 0) {
 				float tf = (float)termCounts[d][t]/(float)docTermCounts[d];
@@ -238,7 +253,6 @@ int main(int argc, char **argv)
 	// for each doc
 	//   for each other doc
 	//     calc dot product
-	//     dot product / magnitude
 
 	float mag[docCount];
 	#pragma omp parallel for
@@ -260,7 +274,6 @@ int main(int argc, char **argv)
 			float s = 0;
 			int t1 = 0;
 			int t2 = 0;
-			int match = 0;
 			while(t1 < docUniqueTermCounts[d1] && t2 < docUniqueTermCounts[d2]) {
 				int term1 = tfidfs[d1][t1].term;
 				int term2 = tfidfs[d2][t2].term;
@@ -272,7 +285,6 @@ int main(int argc, char **argv)
 				} else { // term1 == term2
 					s += tfidfs[d1][t1].value * tfidfs[d2][t2].value;
 					t1++; t2++;
-					match++;
 				}
 			}
 			dots[d1*docCount+d2] = s;
@@ -284,6 +296,10 @@ int main(int argc, char **argv)
 
 	fprintf(stderr, "dotprod\t%ld\n", microsec()-starttime);
 	starttime = microsec();
+
+	// for each doc
+	//   for each other doc
+	//     dot product / magnitude
 
 	float similarities[docCount*docCount];
 	#pragma omp parallel for
