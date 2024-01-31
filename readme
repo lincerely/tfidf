@@ -1,3 +1,11 @@
 # TFIDF
 
 Calculate cosine similarity of files using TF-IDF.
+
+## License
+
+The stemming code is from https://tartarus.org/martin/PorterStemmer/, by Martine Porter.
+
+> "The software is completely free for any purpose, unless notes at the head of the program text indicates otherwise (which is rare)..."
+
+For the rest of the code, see the license attached.
