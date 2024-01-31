@@ -202,6 +202,7 @@ int main(int argc, char **argv)
 		d++;
 	}
 	free(fname);
+	map_free(termMap);
 	docCount = d;
 
 	fprintf(stderr, "token:\t%ld\n", microsec() -starttime);
@@ -276,6 +277,9 @@ int main(int argc, char **argv)
 			}
 			dots[d1*docCount+d2] = s;
 		}
+	}
+	for (int d = 0; d < docCount; d++) {
+		free(tfidfs[d]);
 	}
 
 	fprintf(stderr, "dotprod\t%ld\n", microsec()-starttime);
