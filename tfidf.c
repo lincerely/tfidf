@@ -270,22 +270,17 @@ int main(int argc, char **argv)
 	float dots[docCount*docCount];
 	#pragma omp parallel for
 	for (int d1 = 0; d1 < docCount - 1; d1++) {
+		float *map = calloc(termCount, sizeof(*map));
+		int t1max = docUniqueTermCounts[d1];
+		for (int t1 = 0; t1 < t1max; t1++) {
+			map[tfidfs[d1][t1].term] = tfidfs[d1][t1].value;
+		}
 		for (int d2 = d1+1; d2 < docCount; d2++) {
 			float s = 0;
-			int t1 = 0;
-			int t2 = 0;
-			while(t1 < docUniqueTermCounts[d1] && t2 < docUniqueTermCounts[d2]) {
-				int term1 = tfidfs[d1][t1].term;
-				int term2 = tfidfs[d2][t2].term;
-
-				if (term1 < term2) {
-					t1++;
-				} else if (term1 > term2) {
-					t2++;
-				} else { // term1 == term2
-					s += tfidfs[d1][t1].value * tfidfs[d2][t2].value;
-					t1++; t2++;
-				}
+			int t2max = docUniqueTermCounts[d2];
+			for(int t2 = 0; t2 < t2max; t2++) {
+				struct tfidf t = tfidfs[d2][t2];
+				s += map[t.term] * t.value;
 			}
 			dots[d1*docCount+d2] = s;
 		}
