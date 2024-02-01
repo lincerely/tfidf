@@ -8,21 +8,24 @@ tfidf: tfidf.c stem.c
 tfidf.debug: tfidf.c stem.c
 	gcc-10 -Wall -fopenmp -Ofast -g $(sanitizer) stem.c tfidf.c -o tfidf.debug
 
+tfidf.clang: tfidf.c stem.c
+	clang -Wall -Xclang -fopenmp -lomp -g3 stem.c tfidf.c -o tfidf.clang
+
 filelist.txt:
 	# get list of files excluding executables and directories
 	(cd $(doc_dir); ls -F | grep -v -e '*' -e '/' ) |\
 	   	sed s,^,$(doc_dir), > filelist.txt
 
-.PHONY: profile profile.debug run install test
+.PHONY: profile profile.debug samply install test
 
 profile: tfidf filelist.txt
-	time ./tfidf filelist.txt >/dev/null
+	time ./tfidf filelist.txt >/tmp/sim.csv
 
 profile.debug: tfidf.debug filelist.txt
-	time ./tfidf.debug filelist.txt >/dev/null
+	time ./tfidf.debug filelist.txt >/tmp/sim.csv
 
-run: tfidf filelist.txt
-	./tfidf filelist.txt > /tmp/sim.csv
+samply: tfidf.clang
+	samply record ./tfidf.clang filelist.txt >/tmp/sim.csv
 
 test: tfidf filelist.txt
 	time tfidf filelist.txt > /tmp/sim_before.csv

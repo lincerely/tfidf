@@ -3,4 +3,6 @@ tfidf.debug
 *.dSYM/
 *.csv
 *.txt
+*.json
 acme.dump
+tfidf.clang
