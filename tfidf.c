@@ -85,6 +85,34 @@ void map_free(struct keyval *map[MAP_SIZE])
 	}
 }
 
+/* replace printf("%s, %s, %.4f\n", ...) */
+static char* printsimilarity(char * restrict p, const char * restrict docfname1, const char * restrict docfname2, float sim)
+{
+	const char *sep = ", ";
+	const char *sep2 = ", 0.";
+
+	for(const char *c = docfname1; *c != '\0'; c++)
+		*(p++) = *c;
+
+	for(const char *c = sep; *c != '\0'; c++)
+		*(p++) = *c;
+
+	for(const char *c = docfname2; *c != '\0'; c++)
+		*(p++) = *c;
+
+	for(const char *c = sep2; *c != '\0'; c++)
+		*(p++) = *c;
+
+	int s = (int)(sim*10000+0.5);
+	*(p++) = s/1000+'0';
+	*(p++) = s/100%10+'0';
+	*(p++) = s/10%10+'0';
+	*(p++) = s%10+'0';
+	*(p++) = '\n';
+
+	return p;
+}
+
 int main(int argc, char **argv)
 {
 
@@ -309,8 +337,19 @@ int main(int argc, char **argv)
 	starttime = microsec();
 
 	for (int d1 = 0; d1 < docCount - 1; d1++) {
-		for (int d2 = d1+1; d2 < docCount; d2++) {
-			printf("%s, %s, %.4f\n", docfnames[d1], docfnames[d2], similarities[d1*docCount+d2]);
+		const int B = 16;
+		char buf[(512+12)*B];
+		int d2 = d1+1;
+		for (; d2 < docCount-B; d2=d2+B) {
+			char *p = buf;
+			for(int i = 0; i < B; i++) {
+				p = printsimilarity(p, docfnames[d1], docfnames[d2+i], similarities[d1*docCount+d2+i]);
+			}
+			fwrite(buf, 1, p-buf, stdout);
+		}
+		for (; d2 < docCount; d2++) {
+			char *p = printsimilarity(buf, docfnames[d1], docfnames[d2], similarities[d1*docCount+d2]);
+			fwrite(buf, 1, p-buf, stdout);
 		}
 	}
 
