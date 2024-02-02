@@ -169,41 +169,32 @@ int main(int argc, char **argv)
 		size_t linelen = 0;
 		while (getline(&line, &linelen, fp) != -1) {
 
-			char *str, *last, *token;
-			for (str = line; ; str = NULL) {
+			char *token = line;
+			while (*token != '\0') {
 
-				const char *delim = " \'\t\v\f\r\n!\"#$%&()*+,-./:;<=>?@[\\]^_`{|}~“”";
-				token = strtok_r(str, delim, &last);
-				if (token == NULL) {
-					break;
+				// skip all non-candidate
+				while(!isalnum(*token)) {
+					if (*token == '\0') break;
+					token++;
+				}
+				if (*token == '\0') break;
+
+				char *end = token + 1;
+				while(isalnum(*end)) {
+					end++;
 				}
 
-				for (char *c = token; *c != '\0'; c++) {
-					if (!(ispunct(*c) || isspace(*c))) {
-						break;
-					}
-				}
-
-				for (char *c = token+strlen(token)-1; c > token; c--) {
-					if (!(ispunct(*c) || isspace(*c))) {
-						break;
-					}
-				}
-
-				for (char *c = token; *c != '\0'; c++) {
+				for (char *c = token; c < end; c++) {
 					*c = tolower(*c);
 				}
 
-				if (*token == '\0') {
-					continue;
-				}
-
-				int endc = stem(token, 0, strlen(token)-1);
-
+				int endc = stem(token, 0, end-token-1);
 				if (endc == 0) {
+					token = end;
 					continue;
 				}
 
+				char endBefore = token[endc+1];
 				token[endc+1] = '\0';
 
 				int key;
@@ -228,6 +219,9 @@ int main(int argc, char **argv)
 					termDocCounts[key]++;
 				}
 				termCounts[d][key]++;
+
+				token[endc+1] = endBefore;
+				token = end;
 			}
 		}
 		if (ferror(fp)) {
